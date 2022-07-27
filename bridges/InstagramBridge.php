@@ -89,7 +89,14 @@ class InstagramBridge extends BridgeAbstract
         if ($sessionId and $dsUserId) {
             $headers[] = 'cookie: sessionid=' . $sessionId . '; ds_user_id=' . $dsUserId;
         }
-        return getContents($uri, $headers);
+        try {
+            return getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false]);
+        } catch (\HttpException $e) {
+            if ($e->getCode() == 302 && str_starts_with($e->headers['location'][0], 'https://www.instagram.com/accounts/login')) {
+                throw new DonorRequestException($e);
+            }
+            throw $e;
+        }
     }
 
     protected function getInstagramUserId($username)
@@ -269,6 +276,9 @@ class InstagramBridge extends BridgeAbstract
     protected function getInstagramJSON($uri)
     {
         if (!is_null($this->getInput('u'))) {
+            $data = $this->loadCacheValue('data_u_' . $this->getInput('u'));
+            if ($data) return json_decode($data);
+
             $userId = $this->getInstagramUserId($this->getInput('u'));
             $data = $this->getContents(self::URI .
                                 'graphql/query/?query_hash=' .
@@ -278,6 +288,9 @@ class InstagramBridge extends BridgeAbstract
                                 '"%2C"first"%3A10}');
             return json_decode($data);
         } elseif (!is_null($this->getInput('h'))) {
+            $data = $this->loadCacheValue('data_h_' . $this->getInput('h'));
+            if ($data) return $data;
+
             $data = $this->getContents(self::URI .
                     'graphql/query/?query_hash=' .
                      self::TAG_QUERY_HASH .
@@ -286,13 +299,18 @@ class InstagramBridge extends BridgeAbstract
                     '"%2C"first"%3A10}');
 
             return json_decode($data);
-        } else {
+        } elseif (!is_null($this->getInput('l'))) {
+            $data = $this->loadCacheValue('data_l_' . $this->getInput('l'));
+            if ($data) return $data;
+
             $html = getContents($uri);
             $scriptRegex = '/window\._sharedData = (.*);<\/script>/';
 
             preg_match($scriptRegex, $html, $matches, PREG_OFFSET_CAPTURE, 0);
 
             return json_decode($matches[1][0]);
+        } else {
+            returnClientError('No input data given');
         }
     }
 
