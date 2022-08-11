@@ -78,14 +78,6 @@ class JobQueue
         return $lastInsertId;
     }
 
-    public function countPendingJobsBefore($id) {
-        $q = $this->db->prepare('SELECT COUNT(1) FROM job_queue WHERE id < :id');
-        $q->bindValue(':id', $id);
-        $result = $q->execute();
-        $data = $result->fetchArray(SQLITE3_NUM);
-        return $data[0];
-    }
-
     public function pull($channel) {
         $q = $this->db->prepare('SELECT id, channel, params FROM job_queue WHERE channel = :channel ORDER BY id ASC');
         $q->bindValue(':channel', $channel);
