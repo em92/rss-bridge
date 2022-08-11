@@ -276,7 +276,7 @@ class InstagramBridge extends BridgeAbstract
     protected function getInstagramJSON($uri)
     {
         if (!is_null($this->getInput('u'))) {
-            $data = $this->loadCacheValue('data_u_' . $this->getInput('u'));
+            $data = $this->loadCacheValue('data_u_' . $this->getInput('u'), $this->getCacheTimeout());
             if ($data) return json_decode($data);
 
             $userId = $this->getInstagramUserId($this->getInput('u'));
@@ -288,7 +288,7 @@ class InstagramBridge extends BridgeAbstract
                                 '"%2C"first"%3A10}');
             return json_decode($data);
         } elseif (!is_null($this->getInput('h'))) {
-            $data = $this->loadCacheValue('data_h_' . $this->getInput('h'));
+            $data = $this->loadCacheValue('data_h_' . $this->getInput('h'), $this->getCacheTimeout());
             if ($data) return $data;
 
             $data = $this->getContents(self::URI .
@@ -300,7 +300,7 @@ class InstagramBridge extends BridgeAbstract
 
             return json_decode($data);
         } elseif (!is_null($this->getInput('l'))) {
-            $data = $this->loadCacheValue('data_l_' . $this->getInput('l'));
+            $data = $this->loadCacheValue('data_l_' . $this->getInput('l'), $this->getCacheTimeout());
             if ($data) return $data;
 
             $html = getContents($uri);
