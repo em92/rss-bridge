@@ -83,7 +83,9 @@ class InstagramBridge extends BridgeAbstract
 
     protected function getContents($uri)
     {
-        $headers = [];
+        $headers = [
+            'X-IG-App-ID: 936619743392459',
+        ];
         $sessionId = $this->getOption('session_id');
         $dsUserId = $this->getOption('ds_user_id');
         if ($sessionId and $dsUserId) {
@@ -105,12 +107,7 @@ class InstagramBridge extends BridgeAbstract
             return $username;
         }
 
-        $cacheFactory = new CacheFactory();
-
-        $cache = $cacheFactory->create();
-        $cache->setScope('InstagramBridge');
-        $cache->setKey([$username]);
-        $key = $cache->loadData();
+        $key = $this->loadCacheValue('userid_' . $username);
 
         if ($key == null) {
             $data = $this->getContents(self::URI . 'web/search/topsearch/?query=' . $username);
@@ -122,7 +119,7 @@ class InstagramBridge extends BridgeAbstract
             if ($key == null) {
                 returnServerError('Unable to find username in search result.');
             }
-            $cache->saveData($key);
+            $this->saveCachedValue('userid_' . $username);
         }
         return $key;
     }
@@ -273,13 +270,22 @@ class InstagramBridge extends BridgeAbstract
         return $textContent;
     }
 
+    protected function getInstagramUsernameFromCache($userid) {
+        $data = $this->loadCacheValue('data_u_' . $userid);
+        if ($data) {
+            $json = json_decode($data);
+            return $json->data->user->username;
+        }
+        return null;
+    }
+
     protected function getInstagramJSON($uri)
     {
         if (!is_null($this->getInput('u'))) {
-            $data = $this->loadCacheValue('data_u_' . $this->getInput('u'), $this->getCacheTimeout());
+            $userId = $this->getInstagramUserId($this->getInput('u'));
+            $data = $this->loadCacheValue('data_u_' . $userId, $this->getCacheTimeout());
             if ($data) return json_decode($data);
 
-            $userId = $this->getInstagramUserId($this->getInput('u'));
             $data = $this->getContents(self::URI .
                                 'graphql/query/?query_hash=' .
                                  self::USER_QUERY_HASH .
@@ -317,7 +323,11 @@ class InstagramBridge extends BridgeAbstract
     public function getName()
     {
         if (!is_null($this->getInput('u'))) {
-            return $this->getInput('u') . ' - Instagram Bridge';
+            $u = $this->getInput('u');
+            if (is_numeric($u)) {
+                $u = $this->getInstagramUsernameFromCache($u);
+            }
+            return $u . ' - Instagram Bridge';
         }
 
         return parent::getName();
@@ -326,7 +336,11 @@ class InstagramBridge extends BridgeAbstract
     public function getURI()
     {
         if (!is_null($this->getInput('u'))) {
-            return self::URI . urlencode($this->getInput('u')) . '/';
+            $u = $this->getInput('u');
+            if (is_numeric($u)) {
+                $u = $this->getInstagramUsernameFromCache($u);
+            }
+            return self::URI . urlencode($u) . '/';
         } elseif (!is_null($this->getInput('h'))) {
             return self::URI . 'explore/tags/' . urlencode($this->getInput('h'));
         } elseif (!is_null($this->getInput('l'))) {

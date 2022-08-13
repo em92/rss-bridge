@@ -7,6 +7,8 @@
 // @grant    GM.setValue
 // ==/UserScript==
 
+const USERNAME_AS_USERID_REGEX = /instagram\.com\/(\d+)/;
+
 async function getConfig(name) {
   let r = localStorage.getItem(name);
   if (r) {
@@ -39,12 +41,13 @@ function sleep(s) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function get(url) {
+function get(url, headers) {
   // TODO: use token as authorization
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
       method: "GET",
       url,
+      headers: headers,
       onload: function(response) {
         if (response.status != 200) {
           reject(response);
@@ -142,20 +145,23 @@ async function main() {
     }
 
     try {
-      const sharedData = unsafeWindow._sharedData;
       let instagramData;
-      if (sharedData && sharedData.entry_data && Object.keys(sharedData.entry_data).length > 0) {
-        instagramData = JSON.stringify(sharedData);
-      } else if (webProfileInfo) {
-        instagramData = webProfileInfo;
+      let instagramDataStr;
+      if (webProfileInfo) {
+        instagramDataStr = webProfileInfo;
+        instagramData = JSON.parse(webProfileInfo);
       }
 
-      if (instagramData) {
-        // TODO: реализовать хранение кэша
-        const username = location.pathname.split('/')[1];
-        let r = await post(
-          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=data_u_" + username + '&access_token=' + ACCESS_TOKEN,
-          "value=" + encodeURIComponent(instagramData)
+      if (instagramDataStr) {
+        const username = instagramData.data.user.username;
+        const userid = instagramData.data.user.id;
+        await post(
+          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=userid_" + username + '&access_token=' + ACCESS_TOKEN,
+          "value=" + encodeURIComponent(userid)
+        );
+        await post(
+          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=data_u_" + userid + '&access_token=' + ACCESS_TOKEN,
+          "value=" + encodeURIComponent(instagramDataStr)
         );
       } else {
         // TODO: report, no data
@@ -179,6 +185,18 @@ async function main() {
     while(!url) {
       url = await pullInstagramURLToCrawl();
       await sleep(3);
+    }
+
+    let matches = url.match(USERNAME_AS_USERID_REGEX);
+    if (matches) {
+      const user_id = matches[1];
+      try {
+        const response = await get("https://i.instagram.com/api/v1/users/" + user_id + "/info/", {'X-IG-App-ID': '936619743392459'});
+        const json = JSON.parse(response.responseText);
+        url = "https://www.instagram.com/" + json.user.username;
+      } catch (e) {
+        // TODO: this user may not exist
+      }
     }
 
     await setState('occupied');
