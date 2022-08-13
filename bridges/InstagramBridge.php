@@ -275,13 +275,14 @@ class InstagramBridge extends BridgeAbstract
         return $textContent;
     }
 
-    protected function getInstagramUsernameFromCache($userid) {
+    protected function id2username($userid) {
+        if (!is_numeric($userid)) return $userid;
         $data = $this->loadCacheValue('data_u_' . $userid);
         if ($data) {
             $json = json_decode($data);
             return $json->data->user->username;
         }
-        return null;
+        return $userid;
     }
 
     protected function getInstagramJSON($uri)
@@ -320,14 +321,7 @@ class InstagramBridge extends BridgeAbstract
     public function getName()
     {
         if (!is_null($this->getInput('u'))) {
-            $u = $this->getInput('u');
-            if (is_numeric($u)) {
-                $cached = $this->getInstagramUsernameFromCache($u);
-                if ($cached) {
-                    $u = $cached;
-                }
-            }
-            return $u . ' - Instagram Bridge';
+            return $this->id2username($this->getInput('u')) . ' - Instagram Bridge';
         }
 
         return parent::getName();
@@ -336,14 +330,7 @@ class InstagramBridge extends BridgeAbstract
     public function getURI()
     {
         if (!is_null($this->getInput('u'))) {
-            $u = $this->getInput('u');
-            if (is_numeric($u)) {
-                $cached = $this->getInstagramUsernameFromCache($u);
-                if ($cached) {
-                    $u = $cached;
-                }
-            }
-            return self::URI . urlencode($u) . '/';
+            return self::URI . urlencode($this->id2username($this->getInput('u'))) . '/';
         } elseif (!is_null($this->getInput('h'))) {
             return self::URI . 'explore/tags/' . urlencode($this->getInput('h'));
         } elseif (!is_null($this->getInput('l'))) {
