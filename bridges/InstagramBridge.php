@@ -71,6 +71,7 @@ class InstagramBridge extends BridgeAbstract
     const USER_QUERY_HASH = '58b6785bea111c67129decbe6a448951';
     const TAG_QUERY_HASH = '9b498c08113f1e09617a1703c22b2f32';
     const SHORTCODE_QUERY_HASH = '865589822932d1b43dfe312121dd353a';
+    const IG_APP_ID = '936619743392459';
 
     public function getCacheTimeout()
     {
@@ -83,9 +84,10 @@ class InstagramBridge extends BridgeAbstract
 
     protected function getContents($uri)
     {
-        $headers = [
-            'X-IG-App-ID: 936619743392459',
-        ];
+        $headers = [];
+        if (str_starts_with($uri, "https://i.instagram.com")) {
+            $headers[] = 'X-IG-App-ID: ' . self::IG_APP_ID;;
+        }
         $sessionId = $this->getOption('session_id');
         $dsUserId = $this->getOption('ds_user_id');
         if ($sessionId and $dsUserId) {
@@ -95,7 +97,10 @@ class InstagramBridge extends BridgeAbstract
             return getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false]);
         } catch (\HttpException $e) {
             if ($e->getCode() == 302 && str_starts_with($e->headers['location'][0], 'https://www.instagram.com/accounts/login')) {
-                throw new DonorRequestException($e);
+                $e = new Exception("Instagram asks to login", 500);
+                if ($this->getInput('u')) {
+                    throw new DonorRequestException($e);
+                }
             }
             throw $e;
         }
@@ -294,9 +299,6 @@ class InstagramBridge extends BridgeAbstract
                                 '"%2C"first"%3A10}');
             return json_decode($data);
         } elseif (!is_null($this->getInput('h'))) {
-            $data = $this->loadCacheValue('data_h_' . $this->getInput('h'), $this->getCacheTimeout());
-            if ($data) return $data;
-
             $data = $this->getContents(self::URI .
                     'graphql/query/?query_hash=' .
                      self::TAG_QUERY_HASH .
@@ -305,18 +307,13 @@ class InstagramBridge extends BridgeAbstract
                     '"%2C"first"%3A10}');
 
             return json_decode($data);
-        } elseif (!is_null($this->getInput('l'))) {
-            $data = $this->loadCacheValue('data_l_' . $this->getInput('l'), $this->getCacheTimeout());
-            if ($data) return $data;
-
+        } else {
             $html = getContents($uri);
             $scriptRegex = '/window\._sharedData = (.*);<\/script>/';
 
             preg_match($scriptRegex, $html, $matches, PREG_OFFSET_CAPTURE, 0);
 
             return json_decode($matches[1][0]);
-        } else {
-            returnClientError('No input data given');
         }
     }
 
@@ -325,7 +322,10 @@ class InstagramBridge extends BridgeAbstract
         if (!is_null($this->getInput('u'))) {
             $u = $this->getInput('u');
             if (is_numeric($u)) {
-                $u = $this->getInstagramUsernameFromCache($u);
+                $cached = $this->getInstagramUsernameFromCache($u);
+                if ($cached) {
+                    $u = $cached;
+                }
             }
             return $u . ' - Instagram Bridge';
         }
@@ -338,7 +338,10 @@ class InstagramBridge extends BridgeAbstract
         if (!is_null($this->getInput('u'))) {
             $u = $this->getInput('u');
             if (is_numeric($u)) {
-                $u = $this->getInstagramUsernameFromCache($u);
+                $cached = $this->getInstagramUsernameFromCache($u);
+                if ($cached) {
+                    $u = $cached;
+                }
             }
             return self::URI . urlencode($u) . '/';
         } elseif (!is_null($this->getInput('h'))) {
