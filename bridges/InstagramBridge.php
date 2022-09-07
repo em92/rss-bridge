@@ -93,17 +93,24 @@ class InstagramBridge extends BridgeAbstract
         if ($sessionId and $dsUserId) {
             $headers[] = 'cookie: sessionid=' . $sessionId . '; ds_user_id=' . $dsUserId;
         }
-        try {
-            return getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false]);
-        } catch (\HttpException $e) {
-            if ($e->getCode() == 302 && str_starts_with($e->headers['location'][0], 'https://www.instagram.com/accounts/login')) {
-                $e = new Exception("Instagram asks to login", 500);
+        $response = getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false], true);
+        if (in_array($response['code'], [200, 304])) {
+            return $response['content'];
+        }
+
+        if ($response['code'] == 302) {
+            $redirect_uri = urljoin(self:URI, $e->headers['location'][0]);
+            if (str_starts_with($redirect_uri, 'https://www.instagram.com/accounts/login')) {
+                $e = new \Exception("Instagram asks to login", 500);
                 if ($this->getInput('u')) {
                     throw new DonorRequestException($e);
+                } else {
+                    throw $e;
                 }
             }
-            throw $e;
         }
+
+        throw new \Exception("Unexpected http response code: {$response['code']}");
     }
 
     protected function getInstagramUserId($username)
