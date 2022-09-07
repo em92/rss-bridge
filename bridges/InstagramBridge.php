@@ -99,7 +99,7 @@ class InstagramBridge extends BridgeAbstract
         }
 
         if ($response['code'] == 302) {
-            $redirect_uri = urljoin(self:URI, $e->headers['location'][0]);
+            $redirect_uri = urljoin(self::URI, $e->headers['location'][0]);
             if (str_starts_with($redirect_uri, 'https://www.instagram.com/accounts/login')) {
                 $e = new \Exception("Instagram asks to login", 500);
                 if ($this->getInput('u')) {
