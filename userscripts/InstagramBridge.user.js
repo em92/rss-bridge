@@ -35,25 +35,37 @@ async function setState(state) {
 
 let ACCESS_TOKEN;
 let RSSBRIDGE_ROOT;
+let MASTER_APP_URL;
 
 function sleep(s) {
   let ms = 1000*s;
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function _handle_http_response(resolve, reject, response) {
+  if (response.status != 200) {
+    reject(response);
+  } else {
+    try {
+      resolve(JSON.parse(response.response));
+    } catch(e) {
+      resolve(response.response);
+    }
+  }
+}
+
 function get(url, headers) {
-  // TODO: use token as authorization
+  headers = headers || {};
+  if (url.startsWith(RSSBRIDGE_ROOT)) {
+    headers['Authorization'] = 'Bearer ' + ACCESS_TOKEN;
+  }
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
       method: "GET",
       url,
       headers: headers,
       onload: function(response) {
-        if (response.status != 200) {
-          reject(response);
-        } else {
-          resolve(response);
-        }
+        _handle_http_response(resolve, reject, response);
       },
       onerror: reject
     });
@@ -61,19 +73,18 @@ function get(url, headers) {
 }
 
 function post(url, data) {
-  // TODO: use token to autohrized
+  let headers = { "Content-type" : "application/x-www-form-urlencoded"};
+  if (url.startsWith(RSSBRIDGE_ROOT)) {
+    headers['Authorization'] = 'Bearer ' + ACCESS_TOKEN;
+  }
   return new Promise((resolve, reject) => {
     GM.xmlHttpRequest({
       method: "POST",
       url,
-      headers: { "Content-type" : "application/x-www-form-urlencoded" },
+      headers: headers,
       data: data,
       onload: function(response) {
-        if (response.status != 200) {
-          reject(response);
-        } else {
-          resolve(response);
-        }
+        _handle_http_response(resolve, reject, response);
       },
       onerror: reject
     });
@@ -82,6 +93,7 @@ function post(url, data) {
 
 var webProfileInfo;
 var webProfileInfoStatus;
+var _isLoggedIn;
 
 if (!unsafeWindow.XMLHttpRequest.prototype.getResponseText) {
   unsafeWindow.XMLHttpRequest.prototype.getResponseText = Object.getOwnPropertyDescriptor(unsafeWindow.XMLHttpRequest.prototype, 'responseText').get;
@@ -92,6 +104,8 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
     if (this.responseURL.startsWith("https://i.instagram.com/api/v1/users/web_profile_info/?username=")) {
       webProfileInfo = responseText;
       webProfileInfoStatus = this.status;
+    } else if (this.responseURL.startsWith("https://i.instagram.com/api/v1/web/accounts/get_encrypted_credentials/")) {
+      _isLoggedIn = true;
     }
     return responseText;
   }, unsafeWindow),
@@ -101,12 +115,58 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
 
 async function pullInstagramURLToCrawl() {
   try {
-    const response = await get(RSSBRIDGE_ROOT + '/index.php?action=pull-job-queue&channel=InstagramBridge&access_token=' + ACCESS_TOKEN);
-    return response.responseText;
+    return await get(RSSBRIDGE_ROOT + '/index.php?action=pull-job-queue&channel=InstagramBridge');
   } catch (e) {
     console.error(e);
     return '';
   }
+}
+
+async function report(type, details) {
+  console.log("Report:", type);
+  console.log("Details:", details);
+  if (!MASTER_APP_URL) {
+    console.error("No MASTER_APP_URL defined");
+    return {};
+  }
+  return await post(MASTER_APP_URL + '/report', 'type=' + encodeURIComponent(type) + '&details=' + encodeURIComponent(details));
+}
+
+async function logout() {
+  let ili = await isLoggedIn();
+  if (!ili) return;
+  var s = document.createElement("script");
+  s.src = "https://www.instagram.com/accounts/logout";
+  document.head.appendChild(s);
+  await sleep(3);
+}
+
+async function isLoggedIn_internal() {
+  for (var i=0; i<20; i++) {
+    if (location.pathname.startsWith("/accounts/")) return false;
+    if (location.pathname.startsWith("/challenge/")) return true;
+    if (_isLoggedIn) {
+      return true;
+    }
+    await sleep(1);
+  }
+  if (location.pathname == "/") {
+    return !!document.querySelector('input[placeholder="Search"]');
+  } else {
+    return true;
+  }
+  return false;
+}
+
+async function isLoggedIn() {
+  console.log("checking if logged in");
+  const r = await isLoggedIn_internal();
+  if (r) {
+    console.log("user is logged in");
+  } else {
+    console.log("user is NOT logged in");
+  }
+  return r;
 }
 
 function is429Error() {
@@ -116,8 +176,9 @@ function is429Error() {
 }
 
 async function main() {
-  ACCESS_TOKEN = await getConfig('RSSBRIDGE_ACCESS_TOKEN');
+  ACCESS_TOKEN = await getConfig('ACCESS_TOKEN');
   RSSBRIDGE_ROOT = await getConfig('RSSBRIDGE_ROOT');
+  MASTER_APP_URL = await getConfig('MASTER_APP_URL');
   const DONOR_STATE = await getState();
 
   if (!RSSBRIDGE_ROOT) {
@@ -125,13 +186,37 @@ async function main() {
     return;
   }
 
+  if (!ACCESS_TOKEN) {
+    alert("No ACCESS_TOKEN defined");
+    return;
+  }
+
+  if (MASTER_APP_URL) {
+    if (MASTER_APP_URL != await getConfig("MASTER_APP_URL_CHECKED")) {
+      await get(MASTER_APP_URL); // make sure TamperMonkey allows to work with MASTER_APP
+      await setConfig("MASTER_APP_URL_CHECKED", MASTER_APP_URL);
+    }
+  }
+
   while(!document || !document.querySelector) {
     await sleep(1);
   }
 
-
   switch (DONOR_STATE) {
   case 'occupied':
+    if (!(await isLoggedIn())) {
+      let r = await report('login_required');
+      if (r.action == 'switch_account') {
+        await setState("login");
+        await setConfig("username", r.username);
+        await setConfig("password", r.password);
+        location.pathname = "/accounts/login";
+        location.reload();
+      } else {
+        alert("LOGIN REQUIRED");
+      }
+      return;
+    }
     await sleep(10 + 5 * Math.random()); // give time to fetch webProfileInfo
     for(let i=0; i<30; i++) {
       if (webProfileInfoStatus > 0) break;
@@ -139,8 +224,24 @@ async function main() {
     }
 
     if (is429Error()) {
-      // TODO: maybe report, that it must be switched
+      let r = await report('error_429', location.href);
+      switch(r.action) {
+
+      case 'sleep':
+        await sleep(r.seconds);
+        break;
+
+      case 'switch_account':
+        await logout();
+        await setState("login");
+        await setConfig("username", r.username);
+        await setConfig("password", r.password);
+        location.pathname = "/accounts/login";
+        return;
+      }
+
       await setState('free');
+      main();
       return;
     }
 
@@ -152,23 +253,23 @@ async function main() {
         instagramData = JSON.parse(webProfileInfo);
       }
 
-      if (instagramDataStr) {
+      if (instagramDataStr && instagramData.data.user) {
         const username = instagramData.data.user.username;
         const userid = instagramData.data.user.id;
         await post(
-          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=userid_" + username + '&access_token=' + ACCESS_TOKEN,
+          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=userid_" + username,
           "value=" + encodeURIComponent(userid)
         );
         await post(
-          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=data_u_" + userid + '&access_token=' + ACCESS_TOKEN,
+          RSSBRIDGE_ROOT + "/?action=set-bridge-cache&bridge=Instagram&key=data_u_" + userid,
           "value=" + encodeURIComponent(instagramDataStr)
         );
       } else {
-        // TODO: report, no data
+        await report('no_data', location.href);
       }
 
     } catch(e) {
-      console.error("DONOR ERROR: error while posting cache", e);
+      await report('error_userscript', e.stack);
       await sleep(10);
       location.reload();
       return;
@@ -179,6 +280,7 @@ async function main() {
     await sleep(1 + 3 * Math.random());
     document.elementFromPoint(400, 100).click();
     await sleep(3 + 3 * Math.random());
+
 
   case "free":
     let url = '';
@@ -191,11 +293,12 @@ async function main() {
     if (matches) {
       const user_id = matches[1];
       try {
-        const response = await get("https://i.instagram.com/api/v1/users/" + user_id + "/info/", {'X-IG-App-ID': '936619743392459'});
-        const json = JSON.parse(response.responseText);
+        const json = await get("https://i.instagram.com/api/v1/users/" + user_id + "/info/", {'X-IG-App-ID': '936619743392459'});
         url = "https://www.instagram.com/" + json.user.username;
       } catch (e) {
-        // TODO: this user may not exist
+        await report('error_userscript', e.stack);
+        location.reload();
+        return;
       }
     }
 
@@ -204,9 +307,48 @@ async function main() {
 
     break;
 
+  case "login":
+    await sleep(10);
+    if (await isLoggedIn()) {
+      await setState("free");
+      main();
+      return;
+    }
+
+    var el = null;
+    el = document.querySelector("input[name='username']");
+    if (!el) {
+      console.log("could not find username textbox. Redirecting");
+      await sleep(3);
+      location.pathname = "/accounts/login";
+      return;
+    }
+    const username_to_login = await getConfig("username");
+    const password = await getConfig("password");
+    document.querySelector("input[name='username']").focus();
+    document.execCommand("selectAll");
+    document.execCommand("insertText", false, username_to_login);
+    document.querySelector("input[name='password']").focus();
+    document.execCommand("selectAll");
+    document.execCommand("insertText", false, password);
+    document.querySelector("button[type='submit']").click();
+    await setState("free");
+
+    // givin time to login, it will redirect automatically
+    await sleep(10);
+
+    // it could not login
+    await setState("login");
+    await report("error_login", username_to_login);
+    await sleep(5);
+    location.reload();
+    return;
+
+
   default:
     alert("Unknown state: " + DONOR_STATE);
   };
 };
 
+setTimeout( () => location.reload(), 1000*60*2 );
 main();
