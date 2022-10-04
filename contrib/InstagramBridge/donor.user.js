@@ -252,8 +252,8 @@ async function main() {
     await logout();
     while (true) {
       await sleep(2);
-      let now = new Date();
-      if (now.getHours() >= START_HOUR) {
+      const shouldStart = (await get(APP_ROOT + "/crawling/should_start")).responseText;
+      if (shouldStart == 'y') {
         let responseText = random_choise(LOGINS_PASSWORDS);
         if (responseText) {
           GM.setValue("lw", responseText.split(" "));
@@ -358,21 +358,17 @@ async function main() {
     await sleep(1 + 3 * Math.random());
     document.elementFromPoint(400, 100).click();
     await sleep(3 + 3 * Math.random());
-    await post(APP_ROOT + "/crawling/pong");
+    await post(APP_ROOT + "/crawling/pong?" + username);
     // break;
 
   case "get_next_instagram_account":
     let nextInstagramAccount = await popNextInstagramAccountToCrawl();
     if (!nextInstagramAccount) {
       console.log("all finished");
+      await post("/crawling/stop");
       setState("waiting_for_start");
-      while(true) {
-        let now = new Date();
-        if (now.getHours() < START_HOUR) {
-          location.pathname = "/";
-        }
-        await sleep(10);
-      }
+      location.reload();
+      return;
     }
     setState("fetch_instagram_account");
     location.pathname = "/" + nextInstagramAccount;

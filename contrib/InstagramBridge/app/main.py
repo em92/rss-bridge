@@ -1,4 +1,3 @@
-from pathlib import Path
 import queue
 import subprocess
 import logging
@@ -19,8 +18,7 @@ logging.basicConfig(
 _logger = logging.getLogger(__name__)
 
 DOWNLOAD_VIDEOS_CMD = ['sudo', '-u', 'www-data', '/var/www/html/rss-bridge/contrib/InstagramBridge/download_videos.sh']
-INSTAGRAM_USER_RESUME_PATH = str(Path.home().joinpath(".instagram_user_resume"))
-START_CRAWLING = True
+CRAWLING_IN_PROGRESS = True
 BROWSER_PONGED = False
 
 
@@ -53,60 +51,28 @@ class CrawlerThread(threading.Thread):
             self._run()
 
     def _run(self):
-        global START_CRAWLING
+        global CRAWLING_IN_PROGRESS
         global BROWSER_PONGED
-        filename = self._args[0]
 
-        while START_CRAWLING is False:
+        while CRAWLING_IN_PROGRESS is False:
             sleep(1)
 
-        resume_from_user = None
         try:
-            try:
-                with open(INSTAGRAM_USER_RESUME_PATH, "r") as f:
-                    resume_from_user = f.read().split("\n")[0]
-                os.unlink(INSTAGRAM_USER_RESUME_PATH)
-            except FileNotFoundError:
-                pass
+            start_time = time()
 
-            instagram_users = []
+            while CRAWLING_IN_PROGRESS:
+                if BROWSER_PONGED is True:
+                    start_time = time()
+                    BROWSER_PONGED = False
 
-            with open(filename) as f:
-                instagram_users = sorted(set(filter(
-                    bool,
-                    map(lambda x: x.strip().lower(), f.readlines())
-                )))
+                elif time() - start_time > 60:
+                    _logger.warning("No answer from usersript. Closing tab")
+                    cmd(['xdotool', 'search', '--class', 'chromium', 'key', '--window', '%@', 'Ctrl+w'])
+                    sleep(5)
+                    open_in_browser("https://www.instagram.com/instagram")
+                    break
 
-            _logger.info("%s users in text file" % len(instagram_users))
-
-            sleep(5)
-
-            for i, instagram_user in enumerate(instagram_users):
-                if resume_from_user is not None:
-                    if resume_from_user == instagram_user:
-                        resume_from_user = None
-                    else:
-                        continue
-                _logger.info("Progress: {} of {}".format(i+1, len(instagram_users)))
-                url = "https://www.instagram.com/" + instagram_user
-                _logger.info("Opening {}".format(url))
-                open_in_browser(url)
-
-                start_time = time()
-                while True:
-                    if BROWSER_PONGED is True:
-                        break
-
-                    elif time() - start_time > 60:
-                        _logger.warning("No answer from usersript. Closing tab")
-                        cmd(['xdotool', 'search', '--class', 'chromium', 'key', '--window', '%@', 'Ctrl+w'])
-                        sleep(5)
-                        break
-
-                    sleep(1)
-
-                BROWSER_PONGED = False
-                video_task_queue.put_nowait(instagram_user)
+                sleep(1)
 
         except Exception:
             _logger.exception("Error in thread. Stopping crawling")
@@ -115,31 +81,38 @@ class CrawlerThread(threading.Thread):
             pass
             # cmd(["pkill", "-f", "chromium"])
 
-        START_CRAWLING = False
+        CRAWLING_IN_PROGRESS = False
         BROWSER_PONGED = False
-        resume_from_user = None
 
 
 url_map = Map([
     Rule("/crawling/start", endpoint="start"),
+    Rule("/crawling/stop", endpoint="stop"),
     Rule("/crawling/pong", endpoint="pong"),
+    Rule("/crawling/should_start", endpoint="should_start"),
 ])
 
 
 def application(environ, start_response):
-    global START_CRAWLING
+    global CRAWLING_IN_PROGRESS
     global BROWSER_PONGED
 
     try:
         urls = url_map.bind_to_environ(environ)
         endpoint, args = urls.match()
 
+        response_text = "ok"
         if endpoint == "start":
-            START_CRAWLING = True
+            CRAWLING_IN_PROGRESS = True
         elif endpoint == "pong":
+            video_task_queue.put_nowait(environ['QUERY_STRING'])
             BROWSER_PONGED = True
+        elif endpoint == "should_start":
+            response_text = "y" if CRAWLING_IN_PROGRESS else 'n'
+        elif endpoint == "stop":
+            CRAWLING_IN_PROGRESS = False
 
-        response = Response("ok", mimetype="text/plain")
+        response = Response(response_text, mimetype="text/plain")
     except HTTPException as e:
         response = e.get_response(environ)
 
