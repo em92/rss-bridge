@@ -70,7 +70,7 @@ class CrawlerThread(threading.Thread):
                     cmd(['xdotool', 'search', '--class', 'chromium', 'key', '--window', '%@', 'Ctrl+w'])
                     sleep(5)
                     open_in_browser("https://www.instagram.com/instagram")
-                    break
+                    start_time = time()
 
                 sleep(1)
 
