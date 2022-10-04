@@ -109,7 +109,7 @@ function setProgress(p) {
 
 async function fetchInstagramAccounts() {
   try {
-    let accounts = (await get(INSTAGRAM_ACCOUNTS_URL + "?_=" + Date.now())).responseText.split("\n").filter(x => x);
+    let accounts = (await get(INSTAGRAM_ACCOUNTS_URL + "?_=" + Date.now())).responseText.split("\n").filter(x => x).map( x => x.toLowerCase() );
     if (accounts.length == 0) {
       alert("No accounts given");
       return null;
