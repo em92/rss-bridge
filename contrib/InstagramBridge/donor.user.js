@@ -13,6 +13,7 @@ const NODE_COUNT = 1;
 const START_HOUR = 5;
 const RSSBRIDGE_ROOT='http://localhost:82';
 const INSTAGRAM_ACCOUNTS_URL=RSSBRIDGE_ROOT + '/instagram_accounts.txt';
+const APP_ROOT='http://localhost:8028';
 /*
 Example:
 const LOGINS_PASSWORDS = [
@@ -130,9 +131,6 @@ async function fetchInstagramAccounts() {
   }
 }
 
-function setStatus(status) {
-}
-
 var webProfileInfo;
 var webProfileInfoStatus;
 var _isLoggedIn;
@@ -146,7 +144,7 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
     if (this.responseURL.startsWith("https://i.instagram.com/api/v1/users/web_profile_info/?username=")) {
       webProfileInfo = responseText;
       webProfileInfoStatus = this.status;
-    } else if (this.responseURL.startsWith("https://www.instagram.com/accounts/get_encrypted_credentials/")) {
+    } else if (this.responseURL.startsWith("https://i.instagram.com/api/v1/web/accounts/get_encrypted_credentials/")) {
       _isLoggedIn = true;
     }
     return responseText;
@@ -189,23 +187,51 @@ async function logout() {
   document.head.appendChild(s);
 }
 
-async function isLoggedIn() {
-  console.log("checking if logged in");
+async function isLoggedIn_internal() {
   for (var i=0; i<20; i++) {
+    if (location.pathname.startsWith("/accounts/")) return false;
+    if (location.pathname.startsWith("/challenge/")) return true;
     if (_isLoggedIn) {
-      console.log("user is logged in");
       return true;
     }
     await sleep(1);
   }
-  console.log("user is NOT logged in");
+  if (location.pathname == "/") {
+    return !!document.querySelector('input[placeholder="Search"]');
+  } else {
+    return true;
+  }
   return false;
 }
 
+async function isLoggedIn() {
+  console.log("checking if logged in");
+  const r = await isLoggedIn_internal();
+  if (r) {
+    console.log("user is logged in");
+  } else {
+    console.log("user is NOT logged in");
+  }
+  return r;
+}
+
 function is429Error() {
-  if (webProfileInfoStatus == 429) return true;
-  let c = document.querySelector(".error-container");
-  return c && c.innerText.indexOf("Please wait") > -1;
+  if (location.pathname.startsWith("/challenge/")) return true;
+  if (webProfileInfoStatus == 429) {
+    localStorage.removeItem("too_many_requests");
+    return true;
+  }
+  if (document.title.indexOf("Page not found") > -1) {
+    var counter = parseInt(localStorage.getItem("too_many_requests")) || 0;
+    if (counter > 2) {
+      localStorage.removeItem("too_many_requests");
+      return true;
+    } else {
+      localStorage.setItem("too_many_requests", counter + 1)
+      return false;
+    }
+  }
+  return false;
 }
 
 async function main() {
@@ -297,7 +323,6 @@ async function main() {
     }
     let username = match[0];
 
-    await sleep(10 + 5 * Math.random()); // give time to fetch webProfileInfo
     for(let i=0; i<30; i++) {
       if (webProfileInfoStatus > 0) break;
       await sleep(1);
@@ -333,6 +358,7 @@ async function main() {
     await sleep(1 + 3 * Math.random());
     document.elementFromPoint(400, 100).click();
     await sleep(3 + 3 * Math.random());
+    await post(APP_ROOT + "/crawling/pong");
     // break;
 
   case "get_next_instagram_account":
@@ -358,4 +384,7 @@ async function main() {
   };
 };
 
+setTimeout(function() {
+  location.reload();
+}, 1000*70);
 main();
