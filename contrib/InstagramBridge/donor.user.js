@@ -3,8 +3,6 @@
 // @version  1
 // @include  https://www.instagram.com/*
 // @grant    GM.xmlHttpRequest
-// @grant    GM.getValue
-// @grant    GM.setValue
 // ==/UserScript==
 
 const ACCESS_TOKEN = 'test_token';
@@ -234,6 +232,13 @@ function is429Error() {
   return false;
 }
 
+function getLoginPassword() {
+  const last_lw_index = parseInt(localStorage.getItem("last_lw_index")) || -1;
+  const new_lw_index = (last_lw_index + 1) % LOGINS_PASSWORDS.length;
+  localStorage.setItem("last_lw_index", new_lw_index);
+  return LOGINS_PASSWORDS[new_lw_index].split(" ");
+}
+
 async function main() {
   while(!document || !document.querySelector) {
     await sleep(1);
@@ -254,9 +259,7 @@ async function main() {
       await sleep(2);
       const shouldStart = (await get(APP_ROOT + "/crawling/should_start")).responseText;
       if (shouldStart == 'y') {
-        let responseText = random_choise(LOGINS_PASSWORDS);
-        if (responseText) {
-          GM.setValue("lw", responseText.split(" "));
+        if (LOGINS_PASSWORDS.length > 0) {
           setState("login");
         } else {
           setState("fetch_instagram_account");
@@ -279,7 +282,7 @@ async function main() {
     if (loginBtns.length) {
       random_choise(loginBtns).click();
     } else {
-      const [username_to_login, password] = await GM.getValue("lw");
+      const [username_to_login, password] = getLoginPassword();
       if (!username_to_login || !password) {
         alert("No login given");
         return;
@@ -314,6 +317,11 @@ async function main() {
     break;
 
   case "fetch_instagram_account":
+    if (!(await isLoggedIn())) {
+      setState("login");
+      location.pathname = "/accounts/login";
+      return;
+    }
     let re = /[^/]+/;
     let match = location.pathname.match(re);
     if (!match || match.length > 1) {
