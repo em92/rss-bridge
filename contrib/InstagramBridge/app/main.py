@@ -124,7 +124,8 @@ def application(environ, start_response):
 
 
 if __name__ == "__main__":
-    crawler_thread = CrawlerThread(args=["../../../instagram_accounts.txt"])
+    open_in_browser("https://www.instagram.com")
+    crawler_thread = CrawlerThread()
     crawler_thread.start()
     vd = VideosDownloaderThread()
     vd.start()
