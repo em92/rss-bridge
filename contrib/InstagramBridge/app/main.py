@@ -105,7 +105,8 @@ def application(environ, start_response):
         if endpoint == "start":
             CRAWLING_IN_PROGRESS = True
         elif endpoint == "pong":
-            video_task_queue.put_nowait(environ['QUERY_STRING'])
+            if environ['QUERY_STRING'].strip():
+                video_task_queue.put_nowait(environ['QUERY_STRING'])
             BROWSER_PONGED = True
         elif endpoint == "should_start":
             response_text = "y" if CRAWLING_IN_PROGRESS else 'n'
