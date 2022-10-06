@@ -20,6 +20,7 @@ _logger = logging.getLogger(__name__)
 DOWNLOAD_VIDEOS_CMD = ['sudo', '-u', 'www-data', '/var/www/html/rss-bridge/contrib/InstagramBridge/download_videos.sh']
 CRAWLING_IN_PROGRESS = True
 BROWSER_PONGED = False
+USER = os.environ['USER']
 
 
 def cmd(cmd):
@@ -66,10 +67,10 @@ class CrawlerThread(threading.Thread):
                     BROWSER_PONGED = False
 
                 elif time() - start_time > 60:
-                    _logger.warning("No answer from usersript. Closing tab")
-                    cmd(['xdotool', 'search', '--class', 'chromium', 'key', '--window', '%@', 'Ctrl+w'])
+                    _logger.warning("No answer from usersript. Closing browser")
+                    cmd(['pkill', '-U', USER, 'chromium'])
                     sleep(5)
-                    open_in_browser("https://www.instagram.com/instagram")
+                    open_in_browser("https://www.instagram.com")
                     start_time = time()
 
                 sleep(1)
