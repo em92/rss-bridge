@@ -373,8 +373,8 @@ async function main() {
     let nextInstagramAccount = await popNextInstagramAccountToCrawl();
     if (!nextInstagramAccount) {
       console.log("all finished");
-      await post("/crawling/stop");
       setState("waiting_for_start");
+      await post(APP_ROOT + "/crawling/stop");
       location.reload();
       return;
     }

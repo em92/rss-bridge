@@ -108,11 +108,11 @@ def application(environ, start_response):
         elif endpoint == "pong":
             if environ['QUERY_STRING'].strip():
                 video_task_queue.put_nowait(environ['QUERY_STRING'])
-            BROWSER_PONGED = True
         elif endpoint == "should_start":
             response_text = "y" if CRAWLING_IN_PROGRESS else 'n'
         elif endpoint == "stop":
             CRAWLING_IN_PROGRESS = False
+        BROWSER_PONGED = True
 
         response = Response(response_text, mimetype="text/plain")
     except HTTPException as e:
