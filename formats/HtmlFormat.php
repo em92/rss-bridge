@@ -57,7 +57,7 @@ class HtmlFormat extends FormatAbstract
             'uri'       => $extraInfos['uri'],
             'buttons'   => $buttons,
             'items'     => $items,
-            'warning'   => $extraInfos['warning'] ?? 'example',
+            'warning'   => $extraInfos['warning'] ?? '',
         ]);
         // Remove invalid characters
         ini_set('mbstring.substitute_character', 'none');
