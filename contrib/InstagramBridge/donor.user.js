@@ -139,10 +139,10 @@ if (!unsafeWindow.XMLHttpRequest.prototype.getResponseText) {
 Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
   get: exportFunction(function() {
     var responseText = unsafeWindow.XMLHttpRequest.prototype.getResponseText.call(this);
-    if (this.responseURL.startsWith("https://i.instagram.com/api/v1/users/web_profile_info/?username=")) {
+    if (this.responseURL.includes("/api/v1/users/web_profile_info/?username=")) {
       webProfileInfo = responseText;
       webProfileInfoStatus = this.status;
-    } else if (this.responseURL.startsWith("https://i.instagram.com/api/v1/web/accounts/get_encrypted_credentials/")) {
+    } else if (this.responseURL.includes("/api/v1/web/accounts/get_encrypted_credentials/")) {
       _isLoggedIn = true;
     }
     return responseText;
