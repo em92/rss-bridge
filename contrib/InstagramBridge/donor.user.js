@@ -326,7 +326,12 @@ async function main() {
     let match = location.pathname.match(re);
     if (!match || match.length > 1) {
       setState("get_next_instagram_account");
-      location.pathname = "/";
+      await post(APP_ROOT + "/crawling/pong");
+      if (match) {
+        location.pathname = "/";
+      } else {
+        main();
+      }
       return;
     }
     let username = match[0];
