@@ -36,6 +36,7 @@ async function setState(state) {
 let ACCESS_TOKEN;
 let RSSBRIDGE_ROOT;
 let MASTER_APP_URL;
+let fallbackTimeout;
 
 function sleep(s) {
   let ms = 1000*s;
@@ -104,7 +105,7 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
     if (this.responseURL.includes("/api/v1/users/web_profile_info/?username=")) {
       webProfileInfo = responseText;
       webProfileInfoStatus = this.status;
-    } else if (this.responseURL.startsWith("https://i.instagram.com/api/v1/web/accounts/get_encrypted_credentials/")) {
+    } else if (this.responseURL.includes("/api/v1/web/accounts/get_encrypted_credentials/")) {
       _isLoggedIn = true;
     }
     return responseText;
@@ -228,6 +229,7 @@ async function main() {
       switch(r.action) {
 
       case 'sleep':
+        clearTimeout(fallbackTimeout);
         await sleep(r.seconds);
         break;
 
@@ -240,6 +242,8 @@ async function main() {
         return;
       }
 
+      clearTimeout(fallbackTimeout);
+      await sleep(60*60*2);
       await setState('free');
       main();
       return;
@@ -350,5 +354,5 @@ async function main() {
   };
 };
 
-setTimeout( () => location.reload(), 1000*60*2 );
+fallbackTimeout = setTimeout( () => location.reload(), 1000*60*2 );
 main();
