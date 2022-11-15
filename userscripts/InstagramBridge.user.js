@@ -8,6 +8,12 @@
 // ==/UserScript==
 
 const USERNAME_AS_USERID_REGEX = /instagram\.com\/(\d+)/;
+const WORK_PERIOD = 60*60*11; // 11 hours
+const SLEEP_PERIOD = 60*60*13; // 13 hours
+
+function now() {
+  return parseInt(Date.now() / 1000);
+}
 
 async function getConfig(name) {
   let r = localStorage.getItem(name);
@@ -31,6 +37,16 @@ async function getState() {
 
 async function setState(state) {
   await setConfig("RSSBRIDGE_DONOR_STATE", state);
+}
+
+async function getWorkingTime() {
+  const workStartTime = parseInt(await getConfig("WORK_START_TIME"));
+  if (!workStartTime) {
+    const n = now();
+    await setConfig("WORK_START_TIME", n);
+    workStartTime = n;
+  }
+  return now() - workStartTime;
 }
 
 let ACCESS_TOKEN;
@@ -204,6 +220,15 @@ async function main() {
   }
 
   switch (DONOR_STATE) {
+  case 'sleeping':
+    let workingTime = getWorkingTime();
+    while (workingTime < 0) {
+      await sleep(5);
+      workingTime = getWorkingTime();
+    }
+    await setState("free");
+    return;
+
   case 'occupied':
     if (!(await isLoggedIn())) {
       let r = await report('login_required');
@@ -289,6 +314,13 @@ async function main() {
   case "free":
     let url = '';
     while(!url) {
+      let workingTime = await getWorkingTime();
+      if (workingTime > WORK_PERIOD) {
+        await setState('sleeping');
+        await setConfig('WORK_START_TIME', now() + SLEEP_PERIOD);
+        main();
+        return;
+      }
       url = await pullInstagramURLToCrawl();
       await sleep(3);
     }
