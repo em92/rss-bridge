@@ -247,8 +247,8 @@ async function main() {
   let state = getState();
   console.log("current state", state);
   if (location.pathname.startsWith("/challenge")) {
-    console.log("Challenge detected. Doing nothing");
-    return;
+    console.log("Challenge detected. State reset");
+    state = "waiting_for_start";
   }
 
   showProgress();
