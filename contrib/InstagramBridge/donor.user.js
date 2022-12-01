@@ -23,33 +23,22 @@ const LOGINS_PASSWORDS = [
 const LOGINS_PASSWORDS = [
 ];
 
-/**
- * @param {string} text
- * @returns {{status: symbol, value: any}}
- */
-function extractSharedData(text) {
+function extractPreloader(text) {
+  const entries = []
   const parser = new Parser(text)
-  const index = parser.seek("window._sharedData = ", {moveToMatch: true, useEnd: true})
-  if (index === -1) {
-    // Maybe the profile is age restricted?
-    const age = getRestrictedAge(text)
-    if (age !== null) { // Correct.
-      throw constants.symbols.extractor_results.AGE_RESTRICTED
+  while (parser.seek('{"require":[["PolarisQueryPreloaderCache"', {moveToMatch: true, useEnd: true}) !== -1) {
+    if (parser.seek('{"complete":', {moveToMatch: true, useEnd: false}) !== -1) {
+      let details = parser.get({split: ',"status_code":'}) + "}}"
+      let data = JSON.parse(details)
+      entries.push(data)
     }
-    throw constants.symbols.extractor_results.NO_SHARED_DATA
   }
-  parser.store()
-  const end = parser.seek(";</script>")
-  parser.restore()
-  const sharedDataString = parser.slice(end - parser.cursor)
-  const sharedData = JSON.parse(sharedDataString)
-  console.log(sharedData)
-  // check for alternate form of age restrictions
-  if (sharedData.entry_data && sharedData.entry_data.HttpGatedContentPage) {
-    // ideally extracting the age should be done here, but for the web ui it doesn't matter
-    throw constants.symbols.extractor_results.AGE_RESTRICTED
+  // entries now has the things
+  const profileInfoResponse = entries.find(x => x.request.url === "/api/v1/users/web_profile_info/")
+  if (!profileInfoResponse) {
+    throw new Error("No profile info in the preloader.")
   }
-  return sharedData.entry_data.ProfilePage[0].graphql.user
+  return JSON.parse(profileInfoResponse.result.response).data.user
 }
 
 /**
@@ -512,7 +501,7 @@ async function main() {
       return;
     }
     try {
-      webProfileInfo = {data: {user: extractPreloader(document.documentElement.outerHTML)}};
+      webProfileInfo = JSON.stringify({data: {user: extractPreloader(document.documentElement.outerHTML)}});
       webProfileInfoStatus = 200;
     } catch (e) {
       console.warn(e);
