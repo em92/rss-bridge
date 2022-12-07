@@ -412,7 +412,7 @@ abstract class BridgeAbstract implements BridgeInterface
      * @param int $duration Cache duration (optional, default: 24 hours)
      * @return mixed Cached value or null if the key doesn't exist or has expired
      */
-    protected function loadCacheValue($key, int $duration = 86400)
+    public function loadCacheValue($key, int $duration = 86400)
     {
         $cacheFactory = new CacheFactory();
 
