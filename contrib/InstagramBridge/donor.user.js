@@ -411,7 +411,8 @@ function is429Error() {
 }
 
 function getLoginPassword() {
-  const last_lw_index = parseInt(localStorage.getItem("last_lw_index")) || -1;
+  let last_lw_index = parseInt(localStorage.getItem("last_lw_index"));
+  if (last_lw_index != last_lw_index) last_lw_index = 0;
   const new_lw_index = (last_lw_index + 1) % LOGINS_PASSWORDS.length;
   localStorage.setItem("last_lw_index", new_lw_index);
   return LOGINS_PASSWORDS[new_lw_index].split(" ");
@@ -456,6 +457,7 @@ async function main() {
       location.pathname = "/";
       return;
     }
+    await post(APP_ROOT + "/crawling/pong");
     let loginBtns = Array.from(document.querySelectorAll("button[type='button']")).filter( x => x.innerText == "Log In" );
     if (loginBtns.length) {
       random_choise(loginBtns).click();
