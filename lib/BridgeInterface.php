@@ -145,6 +145,4 @@ interface BridgeInterface
     public function detectParameters($url);
 
     public function getShortName(): string;
-
-    function pushToJobQueue($payload);
 }
