@@ -464,7 +464,7 @@ abstract class BridgeAbstract implements BridgeInterface
 
     protected function pushToJobQueue($payload)
     {
-        if (!$this->isJobQueueAvailable) {
+        if (!$this->isJobQueueAvailable()) {
             throw new Exception('Job queue is not available');
         }
         $jq = new JobQueue();
