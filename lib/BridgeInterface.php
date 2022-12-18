@@ -146,5 +146,5 @@ interface BridgeInterface
 
     public function getShortName(): string;
 
-    protected function pushToJobQueue($payload);
+    function pushToJobQueue($payload);
 }
