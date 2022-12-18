@@ -96,7 +96,7 @@ class InstagramBridge extends BridgeAbstract
         try {
             $response = getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false], true);
         } catch (\HttpException $e) {
-            if ($e->getCode() == 401 && $this->getInput('u') && $this->isJobQueueAvailable) {
+            if ($e->getCode() == 401 && $this->getInput('u') && $this->isJobQueueAvailable()) {
                 $this->pushToJobQueue($this->getURL());
                 return null;
             } else {
@@ -112,7 +112,7 @@ class InstagramBridge extends BridgeAbstract
             $redirect_uri = urljoin(self::URI, $response['header']['location'][0]);
             if (str_starts_with($redirect_uri, 'https://www.instagram.com/accounts/login')) {
                 $e = new \Exception("Instagram asks to login", 500);
-                if ($this->getInput('u') && $this->isJobQueueAvailable) {
+                if ($this->getInput('u') && $this->isJobQueueAvailable()) {
                     $this->pushToJobQueue($this->getURL());
                     return null;
                 } else {
