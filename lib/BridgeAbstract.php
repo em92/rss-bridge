@@ -457,7 +457,7 @@ abstract class BridgeAbstract implements BridgeInterface
         return (new \ReflectionClass($this))->getShortName();
     }
 
-    public function isJobQueueAvailable(): boolean
+    public function isJobQueueAvailable(): bool
     {
         return !!Configuration::getConfig('JobQueue', 'file');
     }
