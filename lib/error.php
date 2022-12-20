@@ -12,6 +12,10 @@
  * @link    https://github.com/rss-bridge/rss-bridge
  */
 
+class UserscriptRequiredException extends \Exception
+{
+}
+
 /**
  * Throws an exception when called.
  *
