@@ -34,6 +34,10 @@
             <a href="<?= e($uri) ?>" target="_blank"><?= e($title) ?></a>
         </h1>
 
+        <?php if($warning): ?>
+            <section class="warning"><?= e($warning) ?></section>
+        <?php endif ?>
+
         <div class="buttons">
             <a href="./#bridge-<?= $_GET['bridge'] ?>">
                 <button class="backbutton">← back to rss-bridge</button>

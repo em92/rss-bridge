@@ -7,6 +7,9 @@ class HtmlFormat extends FormatAbstract
     public function stringify()
     {
         $extraInfos = $this->getExtraInfos();
+        $title = e($extraInfos['name']);
+
+        // Dynamically build buttons for all formats (except HTML)
         $formatFactory = new FormatFactory();
         $buttons = [];
         $linkTags = [];
@@ -54,6 +57,7 @@ class HtmlFormat extends FormatAbstract
             'uri'       => $extraInfos['uri'],
             'buttons'   => $buttons,
             'items'     => $items,
+            'warning'   => $extraInfos['warning'] ?? 'example',
         ]);
         // Remove invalid characters
         ini_set('mbstring.substitute_character', 'none');

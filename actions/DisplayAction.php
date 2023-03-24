@@ -147,6 +147,14 @@ class DisplayAction implements ActionInterface
                     'donationUri'  => $bridge->getDonationURI(),
                     'icon' => $bridge->getIcon()
                 ];
+
+                if ($bridge->showDelayedJobWarning) {
+                    if (count($items)) {
+                        $infos['warning'] = 'RSS-Bridge pushed job to retreive new data. Temporarly showing cached results';
+                    } else {
+                        $infos['warning'] = 'RSS-Bridge pushed job to retreive data. Meanwhile you can add feed link to your feed reader. Posts will appear when job is done';
+                    }
+                }
             } catch (\Throwable $e) {
                 if ($e instanceof HttpException) {
                     // Produce a smaller log record for http exceptions
@@ -180,6 +188,7 @@ class DisplayAction implements ActionInterface
         $format->setItems($items);
         $format->setExtraInfos($infos);
         $lastModified = $cache->getTime();
+        // TODO: if pushed to job queue send other headers to deny proxy or browser to cache
         $format->setLastModified($lastModified);
         $headers = [];
         if ($lastModified) {
