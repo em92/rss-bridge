@@ -96,8 +96,9 @@ class InstagramBridge extends BridgeAbstract
         try {
             $response = getContents($uri, $headers, [CURLOPT_FOLLOWLOCATION => false], true);
         } catch (\HttpException $e) {
-            if ($e->getCode() == 401 && $this->getInput('u')) {
-                throw new DonorRequestException($e);
+            if ($e->getCode() == 401 && $this->getInput('u') && $this->isJobQueueAvailable) {
+                $this->pushToJobQueue($this->getURL());
+                return null;
             } else {
                 throw $e;
             }
@@ -111,8 +112,9 @@ class InstagramBridge extends BridgeAbstract
             $redirect_uri = urljoin(self::URI, $response['header']['location'][0]);
             if (str_starts_with($redirect_uri, 'https://www.instagram.com/accounts/login')) {
                 $e = new \Exception("Instagram asks to login", 500);
-                if ($this->getInput('u')) {
-                    throw new DonorRequestException($e);
+                if ($this->getInput('u') && $this->isJobQueueAvailable) {
+                    $this->pushToJobQueue($this->getURL());
+                    return null;
                 } else {
                     throw $e;
                 }
@@ -152,6 +154,8 @@ class InstagramBridge extends BridgeAbstract
         $directLink = !is_null($this->getInput('direct_links')) && $this->getInput('direct_links');
 
         $data = $this->getInstagramJSON($this->getURI());
+
+        if (!$data) return;
 
         if (!is_null($this->getInput('u'))) {
             $userMedia = $data->data->user->edge_owner_to_timeline_media->edges;
@@ -316,7 +320,20 @@ class InstagramBridge extends BridgeAbstract
                                  '&variables={"id"%3A"' .
                                 $userId .
                                 '"%2C"first"%3A10}');
-            return json_decode($data);
+            if ($data) {
+                return json_decode($data);
+            }
+
+            // Trying to use old retreived old outdated info
+            $data = $this->loadCacheValue('data_u_' . $userId);
+            $this->showDelayedJobWarning = true;
+
+            if ($data) {
+                return json_decode($data);
+            } else {
+                return null;
+            }
+
         } elseif (!is_null($this->getInput('h'))) {
             $data = $this->getContents(self::URI .
                     'graphql/query/?query_hash=' .

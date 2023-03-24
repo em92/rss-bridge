@@ -113,6 +113,22 @@ abstract class BridgeAbstract implements BridgeInterface
      */
     protected $queriedContext = '';
 
+    /**
+     *
+     * Indicator, if delayed job warning should be showed to user
+     *
+     * @var boolean
+     */
+    public $showDelayedJobWarning = false;
+
+    /**
+     *
+     * Indicator, if job queue is available
+     *
+     * @var boolean
+     */
+    private $isJobQueueAvailable;
+
     /** {@inheritdoc} */
     public function getItems()
     {
@@ -447,5 +463,19 @@ abstract class BridgeAbstract implements BridgeInterface
     public function getShortName(): string
     {
         return (new \ReflectionClass($this))->getShortName();
+    }
+
+    public function getIsJobQueueAvailable(): boolean
+    {
+        return !!Configuration::getConfig('JobQueue', 'file');
+    }
+
+    protected function pushToJobQueue($payload)
+    {
+        if (!$this->isJobQueueAvailable) {
+            throw new Exception('Job queue is not available');
+        }
+        $jq = new JobQueue();
+        $jq->push($this->getShortName(), $payload);
     }
 }
