@@ -102,11 +102,17 @@ class DisplayAction implements ActionInterface
         $infos = [];
         $mtime = $cache->getTime();
 
-        if (
-            $mtime !== false
-            && (time() - $cache_timeout < $mtime)
-            && !Debug::isEnabled()
-        ) {
+        $useCache = false;
+        if (!Debug::isEnabled() && $mtime) {
+            if (time() - $cache_timeout < $mtime) {
+                $cacheInvalidateTime = $bridge->getCacheInvalidateTime($cache_params);
+                if (!$cacheInvalidateTime && $cacheInvalidateTime < $mtime) {
+                    $useCache = true;
+                }
+            }
+        }
+
+        if ($useCache) {
             // At this point we found the feed in the cache
 
             if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {

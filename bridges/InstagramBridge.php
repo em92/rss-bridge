@@ -82,6 +82,25 @@ class InstagramBridge extends BridgeAbstract
         return parent::getCacheTimeout();
     }
 
+    public function getCacheInvalidateTime($cache_params)
+    {
+        if (isset($cache_params['u']))
+        {
+            $u = $cache_params['u'];
+            if (is_numeric($u))
+            {
+                $userid = $u;
+            } else {
+                $userid = $this->getInstagramUserId($u);
+                if (!$userid) return null;
+            }
+            $cache = $this->getCache("data_u_$userid");
+            return $cache->getTime();
+        }
+
+        return parent::getCacheInvalidateTime($cache_params);
+    }
+
     protected function getContents($uri)
     {
         $headers = [];
@@ -124,7 +143,7 @@ class InstagramBridge extends BridgeAbstract
         throw new \Exception("Unexpected http response code: {$response['code']}");
     }
 
-    protected function getInstagramUserId($username)
+    protected function getInstagramUserId($username, $onlyCache = false)
     {
         if (is_numeric($username)) {
             return $username;
@@ -132,7 +151,7 @@ class InstagramBridge extends BridgeAbstract
 
         $key = $this->loadCacheValue('userid_' . $username);
 
-        if ($key == null) {
+        if (($key == null) && ($onlyCache === false)) {
             $data = $this->getContents(self::URI . 'web/search/topsearch/?query=' . $username);
             foreach (json_decode($data)->users as $user) {
                 if (strtolower($user->user->username) === strtolower($username)) {

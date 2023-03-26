@@ -42,6 +42,7 @@ class SetBridgeCacheAction implements ActionInterface
         $bridge->loadConfiguration();
         $value = $request['value'];
 
+        // TODO: this is copy of protected method saveCacheValue
         $cacheFactory = new CacheFactory();
 
         $cache = $cacheFactory->create();

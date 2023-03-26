@@ -422,13 +422,7 @@ abstract class BridgeAbstract implements BridgeInterface
      */
     public function loadCacheValue($key, int $duration = 86400)
     {
-        $cacheFactory = new CacheFactory();
-
-        $cache = $cacheFactory->create();
-        // Create class name without the namespace part
-        $scope = $this->getShortName();
-        $cache->setScope($scope);
-        $cache->setKey($key);
+        $cache = $this->getCache($key);
         if ($cache->getTime() < time() - $duration) {
             return null;
         }
@@ -443,13 +437,26 @@ abstract class BridgeAbstract implements BridgeInterface
      */
     protected function saveCacheValue($key, $value)
     {
+        $cache = $this->getCache($key);
+        $cache->saveData($value);
+    }
+
+    /**
+     * Retreved cache object by given key
+     *
+     * @param string $key Key name
+     * @return mixed Cached value or null if the key doesn't exist
+     */
+    protected function getCache($key)
+    {
         $cacheFactory = new CacheFactory();
 
         $cache = $cacheFactory->create();
+        // Create class name without the namespace part
         $scope = $this->getShortName();
         $cache->setScope($scope);
         $cache->setKey($key);
-        $cache->saveData($value);
+        return $cache;
     }
 
     public function getShortName(): string
@@ -470,4 +477,10 @@ abstract class BridgeAbstract implements BridgeInterface
         $jq = new JobQueue();
         $jq->push($this->getShortName(), $payload);
     }
+
+    public function getCacheInvalidateTime($cache_params)
+    {
+        return null;
+    }
+
 }
