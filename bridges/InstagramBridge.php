@@ -91,7 +91,7 @@ class InstagramBridge extends BridgeAbstract
             {
                 $userid = $u;
             } else {
-                $userid = $this->getInstagramUserId($u);
+                $userid = $this->getInstagramUserId($u, true);
                 if (!$userid) return null;
             }
             $cache = $this->getCache("data_u_$userid");
