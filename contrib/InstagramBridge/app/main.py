@@ -21,6 +21,7 @@ DOWNLOAD_VIDEOS_CMD = ['sudo', '-u', 'www-data', '/var/www/html/rss-bridge/contr
 CRAWLING_IN_PROGRESS = True
 BROWSER_PONGED = False
 USER = os.environ['USER']
+NEXT_ACTION = None
 
 
 def cmd(cmd):
@@ -90,6 +91,8 @@ url_map = Map([
     Rule("/crawling/start", endpoint="start"),
     Rule("/crawling/stop", endpoint="stop"),
     Rule("/crawling/pong", endpoint="pong"),
+    Rule("/crawling/get_next_action", endpoint="get_next_action"),
+    Rule("/crawling/set_next_action", endpoint="set_next_action"),
     Rule("/crawling/should_start", endpoint="should_start"),
 ])
 
@@ -97,6 +100,7 @@ url_map = Map([
 def application(environ, start_response):
     global CRAWLING_IN_PROGRESS
     global BROWSER_PONGED
+    global NEXT_ACTION
 
     try:
         urls = url_map.bind_to_environ(environ)
@@ -112,6 +116,16 @@ def application(environ, start_response):
             response_text = "y" if CRAWLING_IN_PROGRESS else 'n'
         elif endpoint == "stop":
             CRAWLING_IN_PROGRESS = False
+        elif endpoint == "get_next_action":
+            if NEXT_ACTION:
+                response_text = NEXT_ACTION
+                NEXT_ACTION = None
+            else:
+                response_text = ""
+        elif endpoint == "set_next_action":
+            if environ['QUERY_STRING'].strip():
+                NEXT_ACTION = environ['QUERY_STRING'].strip()
+
         BROWSER_PONGED = True
 
         response = Response(response_text, mimetype="text/plain")

@@ -347,6 +347,13 @@ async function popNextInstagramAccountToCrawl() {
   // setting progress
   setProgress("Progress: " + (nextIndex + 1).toString() + " of " + accounts.length.toString());
 
+  let action = await get(APP_ROOT + "/crawling/get_next_action");
+  if (action && action.startsWith("current_account=")) {
+    let next = action.split("=")[1];
+    GM_setValue("current_account", next);
+    return next;
+  }
+
   if (nextIndex < accounts.length) {
     let next = accounts[nextIndex];
     GM_setValue("current_account", next);
