@@ -3,6 +3,9 @@
 // @version  1
 // @include  https://www.instagram.com/*
 // @grant    GM.xmlHttpRequest
+// @grant    GM_setValue
+// @grant    GM_getValue
+// @grant    GM_deleteValue
 // ==/UserScript==
 
 const ACCESS_TOKEN = 'test_token';
@@ -256,15 +259,15 @@ function post(url, data) {
 }
 
 function setState(state) {
-  localStorage.setItem("donor_state", state);
+  GM_setValue("donor_state", state);
 }
 
 function getState() {
-  return localStorage.getItem("donor_state") || "waiting_for_start";
+  return GM_getValue("donor_state") || "waiting_for_start";
 }
 
 function showProgress() {
-  let p = localStorage.getItem("donor_progress");
+  let p = GM_getValue("donor_progress");
   if (!p) return;
   let d = document.createElement("div");
   d.style.bottom = 0;
@@ -277,9 +280,9 @@ function showProgress() {
 
 function setProgress(p) {
   if (p) {
-    localStorage.setItem("donor_progress", p);
+    GM_setValue("donor_progress", p);
   } else {
-    localStorage.removeItem("donor_progress");
+    GM_deleteValue("donor_progress");
   }
 }
 
@@ -331,7 +334,7 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
 
 
 async function popNextInstagramAccountToCrawl() {
-  let current = localStorage.getItem("current_account");
+  let current = GM_getValue("current_account");
   let accounts = await fetchInstagramAccounts();
 
   let currentIndex = -1;
@@ -346,11 +349,11 @@ async function popNextInstagramAccountToCrawl() {
 
   if (nextIndex < accounts.length) {
     let next = accounts[nextIndex];
-    localStorage.setItem("current_account", next);
+    GM_setValue("current_account", next);
     return next;
   } else {
     setProgress(false);
-    localStorage.removeItem("current_account");
+    GM_deleteValue("current_account");
     return null;
   }
 }
@@ -394,16 +397,16 @@ async function isLoggedIn() {
 function is429Error() {
   if (location.pathname.startsWith("/challenge/")) return true;
   if (webProfileInfoStatus == 429) {
-    localStorage.removeItem("too_many_requests");
+    GM_deleteValue("too_many_requests");
     return true;
   }
   if (document.title.indexOf("Page not found") > -1) {
-    var counter = parseInt(localStorage.getItem("too_many_requests")) || 0;
+    var counter = parseInt(GM_getValue("too_many_requests")) || 0;
     if (counter > 2) {
-      localStorage.removeItem("too_many_requests");
+      GM_deleteValue("too_many_requests");
       return true;
     } else {
-      localStorage.setItem("too_many_requests", counter + 1)
+      GM_setValue("too_many_requests", counter + 1)
       return false;
     }
   }
@@ -411,10 +414,10 @@ function is429Error() {
 }
 
 function getLoginPassword() {
-  let last_lw_index = parseInt(localStorage.getItem("last_lw_index"));
+  let last_lw_index = parseInt(GM_getValue("last_lw_index"));
   if (last_lw_index != last_lw_index) last_lw_index = 0;
   const new_lw_index = (last_lw_index + 1) % LOGINS_PASSWORDS.length;
-  localStorage.setItem("last_lw_index", new_lw_index);
+  GM_setValue("last_lw_index", new_lw_index);
   return LOGINS_PASSWORDS[new_lw_index].split(" ");
 }
 
