@@ -323,7 +323,9 @@ Object.defineProperty(unsafeWindow.XMLHttpRequest.prototype, 'responseText', {
     if (this.responseURL.includes("/api/v1/users/web_profile_info/?username=")) {
       webProfileInfo = responseText;
       webProfileInfoStatus = this.status;
-    } else if (this.responseURL.includes("/api/v1/web/accounts/get_encrypted_credentials/")) {
+    } else if (this.responseURL.includes("/api/v1/feed/timeline/")) {
+      _isLoggedIn = true;
+    } else if (this.responseURL.includes("/api/v1/web/accounts/get_encrypted_credentials/")) {  // did not reproduce it on Apr 21, 2023
       _isLoggedIn = true;
     }
     return responseText;
